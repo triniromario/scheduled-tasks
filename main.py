@@ -1,62 +1,56 @@
-##################### Extra Hard Starting Project ######################
-
-# 1. Update the birthdays.csv
-
-# 2. Check if today matches a birthday in the birthdays.csv
-
-# 3. If step 2 is true, pick a random letter from letter templates and replace the [NAME] with the person's actual name from birthdays.csv
-
-# 4. Send the letter generated in step 3 to that person's email address.
+import requests
 import os
-import smtplib
+from twilio.rest import Client
 
-MY_EMAIL = os.environ.get("MY_EMAIL")
-MY_PASSWORD = os.environ.get("MY_PASSWORD")
+api_key = 'f2676d7b5b3ccb612ef613d91b5ae4f1'
+MY_LAT = 50.4478813 # Your latitude
+MY_LONG = -104.6056188 # Your longitude
+OWM_Endpoint = "https://api.openweathermap.org/data/2.5/forecast"
 
-import datetime as dt
-import pandas as pd
-import random
-from pathlib import Path
+# Pass your actual Twilio credentials directly as strings
+api_key = os.environ.get("OWM_API_KEY")
+account_sid = os.environ.get("ACCOUNT_SID")
+auth_token = os.environ.get("AUTH_TOKEN")
 
-# __file__ means "this exact Python script".
-# .parent means "the folder this script is sitting in".
-SCRIPT_DIR = Path(__file__).parent
-LETTER_TEMPLATE_1 = SCRIPT_DIR / "letter_templates" / "letter_1.txt"
-LETTER_TEMPLATE_2 = SCRIPT_DIR / "letter_templates" / "letter_2.txt"
-LETTER_TEMPLATE_3 = SCRIPT_DIR / "letter_templates" / "letter_3.txt"
-BIRTHDAYS = SCRIPT_DIR / "birthdays.csv"
-LETTER_TEMPLATE_GROUP = [LETTER_TEMPLATE_1, LETTER_TEMPLATE_2, LETTER_TEMPLATE_3]
+parameters = {
+        'lat': MY_LAT,
+        'lon': MY_LONG,
+        'appid': api_key,
+        'cnt': 4,
+    }
 
-# Pandas handles opening, parsing, and naming columns all at once
-df = pd.read_csv(BIRTHDAYS)
+try:
+    response = requests.get(OWM_Endpoint, params=parameters)
+    response.raise_for_status()
+    weather_data = response.json()
+    print(weather_data)
 
-now = dt.datetime.now()
-year, month, day = now.year, now.month, now.day
-# This creates a mask where both conditions are true
-# 1. Create the filtered DataFrame
-matching_rows = df[(df["month"] == month) & (df["day"] == day)]
+except requests.exceptions.RequestException as e:
+    print(f"Network error")
 
-# 2. Check if it actually found anything
-if not matching_rows.empty:
-    # Pull the 'name' column ONLY from the matching rows
-    birthday_names = matching_rows["name"]
-    birthday_emails = matching_rows["email"]
-    with open(random.choice(LETTER_TEMPLATE_GROUP), "r") as file:
-        template_content = file.read()  #
+# 1. Look for the key "list" (NOT "hourly")
+forecast_list = weather_data["list"]
 
-        # 2. Loop through each name and generate a personalized letter
-        for name, email in zip(birthday_names, birthday_emails):
-            # .replace() swaps [NAME] for the actual person's name
-            personalized_letter = template_content.replace("[NAME]", name)
-            print(personalized_letter)
+will_rain = False
 
-            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-                connection.starttls()
-                connection.login(user=my_email, password=password)
-                connection.sendmail(from_addr=my_email,
-                                    to_addrs=email,
-                                    msg=f"Subject:Happy Birthday\n\n{personalized_letter}\n\n")
-            print("Email sent successfully!")
+# 2. Loop through the 4 items the API sent back
+for hour_data in forecast_list:
+    # Dig into the weather dictionary item
+    condition_code = hour_data["weather"][0]["id"]
+
+    # Under 700 means rain/snow/storm
+    if condition_code < 700:
+        will_rain = True
+
+# 3. Make your decision
+if will_rain:
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(
+        body="It's going to rain today.",
+        from_="+16479312291",
+        to="3065528822",)
+    print(message.status)
 else:
-    pass
+    print("No rain expected in the next 12 hours.")
+
 
