@@ -2,7 +2,6 @@ import requests
 import os
 from twilio.rest import Client
 
-api_key = 'f2676d7b5b3ccb612ef613d91b5ae4f1'
 MY_LAT = 50.4478813 # Your latitude
 MY_LONG = -104.6056188 # Your longitude
 OWM_Endpoint = "https://api.openweathermap.org/data/2.5/forecast"
