@@ -22,34 +22,28 @@ try:
     response = requests.get(OWM_Endpoint, params=parameters)
     response.raise_for_status()
     weather_data = response.json()
-    print(weather_data)
+    print("Weather data retrieved successfully.")
+    
+    # Move the dependent logic INSIDE the try block so it only runs if the API call succeeds
+    forecast_list = weather_data["list"]
+
+    will_rain = False
+
+    for hour_data in forecast_list:
+        condition_code = hour_data["weather"][0]["id"]
+        if condition_code < 700:
+            will_rain = True
+
+    if will_rain:
+        client = Client(account_sid, auth_token)
+        message = client.messages.create(
+            body="It's going to rain today.",
+            from_="+16479312291",
+            to="3065528822",
+        )
+        print(message.status)
+    else:
+        print("No rain expected in the next 12 hours.")
 
 except requests.exceptions.RequestException as e:
-    print(f"Network error")
-
-# 1. Look for the key "list" (NOT "hourly")
-forecast_list = weather_data["list"]
-
-will_rain = False
-
-# 2. Loop through the 4 items the API sent back
-for hour_data in forecast_list:
-    # Dig into the weather dictionary item
-    condition_code = hour_data["weather"][0]["id"]
-
-    # Under 700 means rain/snow/storm
-    if condition_code < 700:
-        will_rain = True
-
-# 3. Make your decision
-if will_rain:
-    client = Client(account_sid, auth_token)
-    message = client.messages.create(
-        body="It's going to rain today.",
-        from_="+16479312291",
-        to="3065528822",)
-    print(message.status)
-else:
-    print("No rain expected in the next 12 hours.")
-
-
+    print(f"Network error: {e}")
